@@ -9,7 +9,6 @@ const VSHADER_SOURCE =
 layout(location=${loc_aPosition}) in vec4 aPosition;
 void main() {
     gl_Position = aPosition;
-    gl_PointSize = 10.0;
 }`;
 
 const FSHADER_SOURCE =
@@ -82,12 +81,8 @@ function main() {
 
     const pointContainer = new PointContainer(canvas);
     canvas.onmousedown = function (ev) {
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
         pointContainer.addNewPoint(ev);
-        
-        // Draw
-        draw();
+        draw(gl, pointContainer.points, loc_uFragColor);        
     };
 
     // Specify the color for clearing <canvas>
@@ -95,18 +90,51 @@ function main() {
 
     // Clear <canvas>
     gl.clear(gl.COLOR_BUFFER_BIT);
+}
 
-    const draw = function () {
-        const points = pointContainer.points;
-        for (let i = 0; i < points.length; i++) {
-            // Pass the position of a point to aPosition variable
-            const pointCoord = points[i].coord;
-            const rgba = points[i].color;
+function draw(gl, points, loc_uFragColor) {
+    gl.clear(gl.COLOR_BUFFER_BIT);
 
-            gl.vertexAttrib3f(loc_aPosition, pointCoord.x, pointCoord.y, 0.0);
-            gl.uniform4f(loc_uFragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
-
-            gl.drawArrays(gl.POINTS, 0, 1);
-        }
+    let { vao, n } = initVertexBuffers(gl, points);
+    if (n < 0) {
+        console.log('Failed to set the positions of the vertices');
+        return;
     }
+    
+    gl.bindVertexArray(vao);
+    // Draw the rectangle
+    gl.drawArrays(gl.TRIANGLES, 0, n);
+    gl.bindVertexArray(null);
+}
+
+function initVertexBuffers(gl, points) {
+    const vertices = new Float32Array(
+        points.map((point) => point.coord)
+            .flatMap(({x, y}) => [x, y+0.2,    x-0.2, y-0.2,    x+0.2, y-0.2])
+    );
+    const n = vertices.length / 2; // The number of vertices
+
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    // Create a buffer object
+    let vertexBuffer = gl.createBuffer();
+    if (!vertexBuffer) {
+        console.log('Failed to create the buffer object');
+        return -1;
+    }
+
+    // Bind the buffer object to target
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    // Write date into the buffer object
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    // Assign the buffer object to aPosition variable
+    gl.vertexAttribPointer(loc_aPosition, 2, gl.FLOAT, false, 0, 0);
+
+    // Enable the assignment to aPosition variable
+    gl.enableVertexAttribArray(loc_aPosition);
+
+    gl.bindVertexArray(null);
+
+    return { vao, n };
 }
