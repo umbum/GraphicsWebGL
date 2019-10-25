@@ -20,6 +20,12 @@ void main() {
     fColor = uFragColor;
 }`;
 
+// 중앙에서 위쪽 꼭지점까지의 거리가 1인 star 도형의 꼭지점들의 좌표 Triangle fan 표현
+const STAR_REPR = [
+    0, 0, 0, 1, 0.22, 0.31, 0.95, 0.31, 0.36, -0.12, 0.59, -0.81,
+    0, -0.38, -0.59, -0.81, -0.36, -0.12, -0.95, 0.31, -0.22, 0.31, 0, 1
+];
+
 class PointContainer {
     constructor(canvas) {
         this.canvas = canvas;
@@ -82,7 +88,7 @@ function main() {
     const pointContainer = new PointContainer(canvas);
     canvas.onmousedown = function (ev) {
         pointContainer.addNewPoint(ev);
-        draw(gl, pointContainer.points, loc_uFragColor);        
+        draw(gl, pointContainer.points, loc_uFragColor);
     };
 
     // Specify the color for clearing <canvas>
@@ -100,18 +106,25 @@ function draw(gl, points, loc_uFragColor) {
         console.log('Failed to set the positions of the vertices');
         return;
     }
-    
+
     gl.bindVertexArray(vao);
     // Draw the rectangle
-    gl.drawArrays(gl.TRIANGLES, 0, n);
+    const starLen = STAR_REPR.length / 2
+    for (let i = 0; i < n; i += starLen) {
+        gl.drawArrays(gl.TRIANGLE_FAN, i, starLen);
+    }
     gl.bindVertexArray(null);
 }
 
 function initVertexBuffers(gl, points) {
-    const vertices = new Float32Array(
-        points.map((point) => point.coord)
-            .flatMap(({x, y}) => [x, y+0.2,    x-0.2, y-0.2,    x+0.2, y-0.2])
-    );
+    const starScale = 0.2
+    const starRepr = STAR_REPR.map(a => a * starScale);
+
+    const vertices = points.map(point => point.coord)
+        .flatMap(({ x, y }) =>
+            starRepr.map((a, i) => (i % 2) ? y + a : x + a)
+        );
+
     const n = vertices.length / 2; // The number of vertices
 
     let vao = gl.createVertexArray();
@@ -126,7 +139,7 @@ function initVertexBuffers(gl, points) {
     // Bind the buffer object to target
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     // Write date into the buffer object
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
     // Assign the buffer object to aPosition variable
     gl.vertexAttribPointer(loc_aPosition, 2, gl.FLOAT, false, 0, 0);
