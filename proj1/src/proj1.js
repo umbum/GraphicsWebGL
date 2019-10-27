@@ -7,9 +7,12 @@ const loc_starVertex = 3;
 const VSHADER_SOURCE =
     `#version 300 es
 layout(location=${loc_starVertex}) in vec4 starVertex;
-uniform mat4 uMatT;
-uniform mat4 uMatR;
-uniform mat4 uMatS;
+uniform matrices
+{
+    mat4 uMatR;
+    mat4 uMatT;
+    mat4 uMatS;
+};
 void main() {
     gl_Position = uMatT * uMatR * uMatS * starVertex;
 }`;
@@ -91,24 +94,11 @@ function main() {
         return;
     }
 
-    const getUniformLocation = function (locName) {
-        const locVariable = gl.getUniformLocation(gl.program, locName);
-        if (!locVariable) {
-            throw `Failed to get the storage location of ${locName}`;
-        }
-        return locVariable;
-    }
+    let matR = new Matrix4();
+    let matT = new Matrix4();
+    let matS = new Matrix4();
 
-    let loc_uFragColor, loc_uMatT, loc_uMatR, loc_uMatS;
-    try {
-        loc_uFragColor = getUniformLocation('uFragColor');
-        loc_uMatT = getUniformLocation('uMatT');
-        loc_uMatR = getUniformLocation('uMatR');
-        loc_uMatS = getUniformLocation('uMatS');
-    } catch (e) {
-        console.log(e);
-        return;
-    }
+    let {ubo,buffer} = initUBO(gl, matR, matT, matS);
     
     const pointContainer = new PointContainer(canvas);
     canvas.onmousedown = (ev) => pointContainer.addNewPoint(ev);
@@ -120,26 +110,23 @@ function main() {
     // 짧은 시간 마다 계속 호출됨.
     let tick = function () {
         angle = getCurrentAngle(angle);  // Update the rotation angle
-        draw(gl, pointContainer.points, angle, loc_uMatT, loc_uMatR, loc_uMatS, loc_uFragColor);
+        draw(gl, pointContainer.points, angle, ubo, buffer, matR, matT, matS);
         requestAnimationFrame(tick, canvas); // Request that the browser calls tick
     };
     tick()
 }
 
-function draw(gl, points, angle, loc_uMatT, loc_uMatR, loc_uMatS, loc_uFragColor) {
+function draw(gl, points, angle, ubo, buffer, matR, matT, matS) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let matT = new Matrix4();
-    let matR = new Matrix4();
-    let matS = new Matrix4();
-    matT.translate(0.3, 0, 0);
-    matR.rotate(angle, 0, 0, 1);
+    matT.setTranslate(0.3, 0, 0);
+    matR.setRotate(angle, 0, 0, 1);
     matS.setScale(0.5, 0.5, 0.5);
-    
-    gl.uniformMatrix4fv(loc_uMatT, false, matT.elements);
-    gl.uniformMatrix4fv(loc_uMatR, false, matR.elements);
-    gl.uniformMatrix4fv(loc_uMatS, false, matS.elements);
 
+    gl.bindBuffer(gl.UNIFORM_BUFFER, ubo);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, buffer); // Update three uniforms all at once.
+    gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+    
     let { vao, n } = initVAO(gl, points);
     if (n < 0) {
         console.log('Failed to set the positions of the vertices');
@@ -189,6 +176,37 @@ function initVAO(gl, points) {
     gl.disableVertexAttribArray(loc_starVertex);
 
     return { vao, n };
+}
+
+function initUBO(gl, matR, matT, matS) {
+
+    const binding_matrices = 7;
+
+    console.log('MAX_UNIFORM_BUFFER_BINDINGS=' + gl.MAX_UNIFORM_BUFFER_BINDINGS);
+
+    let idx_uniform_block = gl.getUniformBlockIndex(gl.program, 'matrices');   // uniform block index
+    gl.uniformBlockBinding(gl.program, idx_uniform_block, binding_matrices);
+
+    let ubo = gl.createBuffer();
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, binding_matrices, ubo);
+
+    let FSIZE = 4;
+
+    let buffer = new ArrayBuffer(FSIZE*16*3);
+
+    // We re-assign the `elements' properties of Matrix4 objects
+    // to the `DataView' in the buffer.
+    // Old `Float32Array' objects referenced by `elements' will be garbage-collected later.
+    // From now on, all the matrix operations will modify data in `buffer'.
+    matR.elements = new Float32Array(buffer, 0, 16);
+    matT.elements = new Float32Array(buffer, FSIZE*16, 16);
+    matS.elements = new Float32Array(buffer, FSIZE*16*2, 16);
+
+    gl.bindBuffer(gl.UNIFORM_BUFFER, ubo);
+    gl.bufferData(gl.UNIFORM_BUFFER, FSIZE*16*3, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+
+    return {ubo,buffer};
 }
 
 // Rotation angle (degrees/second)
