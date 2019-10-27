@@ -59,13 +59,7 @@ class PointContainer {
     }
 
     getPointColor(p) {
-        if (p.x >= 0.0 && p.y >= 0.0) {      // First quadrant
-            return [1.0, 0.0, 0.0, 1.0];  // Red
-        } else if (p.x < 0.0 && p.y < 0.0) { // Third quadrant
-            return [0.0, 1.0, 0.0, 1.0];  // Green
-        } else {                          // Others
-            return [1.0, 1.0, 1.0, 1.0];  // White
-        }
+        return [Math.random(), Math.random(), Math.random(), 1.0];
     }
 
     getPointCoord(ev, canvas) {
@@ -94,6 +88,12 @@ function main() {
         return;
     }
 
+    const loc_uFragColor = gl.getUniformLocation(gl.program, 'uFragColor');
+    if (!loc_uFragColor) {
+        console.log('Failed to get the storage location of uFragColor');
+        return;
+    }
+
     let matR = new Matrix4();
     let matT = new Matrix4();
     let matS = new Matrix4();
@@ -110,24 +110,20 @@ function main() {
     // 짧은 시간 마다 계속 호출됨.
     let tick = function () {
         angle = getCurrentAngle(angle);  // Update the rotation angle
-        draw(gl, pointContainer.points, angle, ubo, buffer, matR, matT, matS);
+        draw(gl, pointContainer.points, angle, ubo, buffer, matR, matT, matS, loc_uFragColor);
         requestAnimationFrame(tick, canvas); // Request that the browser calls tick
     };
     tick()
 }
 
-function draw(gl, points, angle, ubo, buffer, matR, matT, matS) {
+function draw(gl, points, angle, ubo, buffer, matR, matT, matS, loc_uFragColor) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     
     matR.setRotate(angle, 0, 0, 1);
     matS.setScale(0.3, 0.3, 0.3);
     
-    let { vao, n } = initVAO(gl, points);
-    if (n < 0) {
-        console.log('Failed to set the positions of the vertices');
-        return;
-    }
+    const vao = initVAO(gl);
 
     gl.bindVertexArray(vao);
     // Draw the rectangle
@@ -138,45 +134,43 @@ function draw(gl, points, angle, ubo, buffer, matR, matT, matS) {
         gl.bufferSubData(gl.UNIFORM_BUFFER, 0, buffer); // Update three uniforms all at once.
         gl.bindBuffer(gl.UNIFORM_BUFFER, null);
         
+        const rgba = p.color;
+        gl.uniform4f(loc_uFragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
+
         gl.drawArrays(gl.TRIANGLE_FAN, 0, starLen);
     })
     gl.bindVertexArray(null);
 }
 
-function initVAO(gl, points) {
-
-    const n = STAR_REPR.length / 2; // The number of vertices
+function initVAO(gl) {
 
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    const transferDataToShader = function (location, data, size) {
-        // Create a buffer object
-        const buffer = gl.createBuffer();
-        if (!buffer) {
-            console.log('Failed to create the buffer object');
-            return -1;
-        }
-
-        // Bind the buffer object to target
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        // Write date into the buffer object
-        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-
-        // Assign the buffer object to VS's location variable
-        gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind
-
-        // Enable the assignment to VS's location variable
-        gl.enableVertexAttribArray(location);
+    // Create a buffer object
+    const vertexBuffer = gl.createBuffer();
+    if (!vertexBuffer) {
+        console.log('Failed to create the buffer object');
+        return -1;
     }
-    transferDataToShader(loc_starVertex, STAR_REPR, 2);
+
+    // Bind the buffer object to target
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    // Write date into the buffer object
+    gl.bufferData(gl.ARRAY_BUFFER, STAR_REPR, gl.STATIC_DRAW);
+
+    // Assign the buffer object to VS's location variable
+    gl.vertexAttribPointer(loc_starVertex, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind
+
+    // Enable the assignment to VS's location variable
+    gl.enableVertexAttribArray(loc_starVertex);
     
     gl.bindVertexArray(null);
     gl.disableVertexAttribArray(loc_starVertex);
 
-    return { vao, n };
+    return vao;
 }
 
 function initUBO(gl, matR, matT, matS) {
