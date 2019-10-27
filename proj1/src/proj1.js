@@ -3,13 +3,26 @@
  * @since  : 2019-10-24
  */
 "use strict";
-const loc_aPosition = 3;
+const loc_starVertex = 3;
 const VSHADER_SOURCE =
     `#version 300 es
-layout(location=${loc_aPosition}) in vec4 aPosition;
+layout(location=${loc_starVertex}) in vec4 starVertex;
+uniform mat4 uMatT;
+uniform mat4 uMatR;
+uniform mat4 uMatS;
 void main() {
-    gl_Position = aPosition;
+    gl_Position = uMatT * uMatR * uMatS * starVertex;
 }`;
+/**
+ * matT를 uniform으로 하는게 맞다. 왜냐면,
+ * starVertex : star를 이루는 12개의 점 각각이 들어옴
+ * uMatT      : star 1개(=12개의 점)에 대해서 모두 같은 양으로 Translate. 
+ *              한 번의 draw에 12개가 들어오는데 이들에 대해서 모두 같은 uMatT를 적용 할 것이므로.
+ * uMatR      : 모든 star(12*n)에 대해서 모두 같은 양으로 회전
+ * 
+ * 그니까 말하자면 uMatT가 원래 uniform이고 uMatR은 uniform-uniform 이다.
+ */
+
 
 const FSHADER_SOURCE =
     `#version 300 es
@@ -20,11 +33,11 @@ void main() {
     fColor = uFragColor;
 }`;
 
-// 중앙에서 위쪽 꼭지점까지의 거리가 1인 star 도형의 꼭지점들의 좌표 Triangle fan 표현
-const STAR_REPR = [
+// 중앙에서 위쪽 꼭지점까지의 거리가 1인 star 도형의 Triangle fan 표현 (12개 꼭지점)
+const STAR_REPR = new Float32Array([
     0, 0, 0, 1, 0.22, 0.31, 0.95, 0.31, 0.36, -0.12, 0.59, -0.81,
     0, -0.38, -0.59, -0.81, -0.36, -0.12, -0.95, 0.31, -0.22, 0.31, 0, 1
-];
+]);
 
 class PointContainer {
     constructor(canvas) {
@@ -78,30 +91,56 @@ function main() {
         return;
     }
 
-    // Get the storage location of u_FragColor
-    const loc_uFragColor = gl.getUniformLocation(gl.program, 'uFragColor');
-    if (!loc_uFragColor) {
-        console.log('Failed to get the storage location of uFragColor');
-        return;
+    const getUniformLocation = function (locName) {
+        const locVariable = gl.getUniformLocation(gl.program, locName);
+        if (!locVariable) {
+            throw `Failed to get the storage location of ${locName}`;
+        }
+        return locVariable;
     }
 
+    let loc_uFragColor, loc_uMatT, loc_uMatR, loc_uMatS;
+    try {
+        loc_uFragColor = getUniformLocation('uFragColor');
+        loc_uMatT = getUniformLocation('uMatT');
+        loc_uMatR = getUniformLocation('uMatR');
+        loc_uMatS = getUniformLocation('uMatS');
+    } catch (e) {
+        console.log(e);
+        return;
+    }
+    
     const pointContainer = new PointContainer(canvas);
-    canvas.onmousedown = function (ev) {
-        pointContainer.addNewPoint(ev);
-        draw(gl, pointContainer.points, loc_uFragColor);
-    };
+    canvas.onmousedown = (ev) => pointContainer.addNewPoint(ev);
 
     // Specify the color for clearing <canvas>
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-    // Clear <canvas>
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    let angle = 0.0;
+    // 짧은 시간 마다 계속 호출됨.
+    let tick = function () {
+        angle = getCurrentAngle(angle);  // Update the rotation angle
+        draw(gl, pointContainer.points, angle, loc_uMatT, loc_uMatR, loc_uMatS, loc_uFragColor);
+        requestAnimationFrame(tick, canvas); // Request that the browser calls tick
+    };
+    tick()
 }
 
-function draw(gl, points, loc_uFragColor) {
+function draw(gl, points, angle, loc_uMatT, loc_uMatR, loc_uMatS, loc_uFragColor) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let { vao, n } = initVertexBuffers(gl, points);
+    let matT = new Matrix4();
+    let matR = new Matrix4();
+    let matS = new Matrix4();
+    matT.translate(0.3, 0, 0);
+    matR.rotate(angle, 0, 0, 1);
+    matS.setScale(0.5, 0.5, 0.5);
+    
+    gl.uniformMatrix4fv(loc_uMatT, false, matT.elements);
+    gl.uniformMatrix4fv(loc_uMatR, false, matR.elements);
+    gl.uniformMatrix4fv(loc_uMatS, false, matS.elements);
+
+    let { vao, n } = initVAO(gl, points);
     if (n < 0) {
         console.log('Failed to set the positions of the vertices');
         return;
@@ -116,38 +155,54 @@ function draw(gl, points, loc_uFragColor) {
     gl.bindVertexArray(null);
 }
 
-function initVertexBuffers(gl, points) {
-    const starScale = 0.2
-    const starRepr = STAR_REPR.map(a => a * starScale);
+function initVAO(gl, points) {
 
-    const vertices = points.map(point => point.coord)
-        .flatMap(({ x, y }) =>
-            starRepr.map((a, i) => (i % 2) ? y + a : x + a)
-        );
+    const n = STAR_REPR.length / 2; // The number of vertices
 
-    const n = vertices.length / 2; // The number of vertices
-
-    let vao = gl.createVertexArray();
+    const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
-    // Create a buffer object
-    let vertexBuffer = gl.createBuffer();
-    if (!vertexBuffer) {
-        console.log('Failed to create the buffer object');
-        return -1;
+
+    const transferDataToShader = function (location, data, size) {
+        // Create a buffer object
+        const buffer = gl.createBuffer();
+        if (!buffer) {
+            console.log('Failed to create the buffer object');
+            return -1;
+        }
+
+        // Bind the buffer object to target
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        // Write date into the buffer object
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+        // Assign the buffer object to VS's location variable
+        gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind
+
+        // Enable the assignment to VS's location variable
+        gl.enableVertexAttribArray(location);
     }
-
-    // Bind the buffer object to target
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    // Write date into the buffer object
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-    // Assign the buffer object to aPosition variable
-    gl.vertexAttribPointer(loc_aPosition, 2, gl.FLOAT, false, 0, 0);
-
-    // Enable the assignment to aPosition variable
-    gl.enableVertexAttribArray(loc_aPosition);
-
+    transferDataToShader(loc_starVertex, STAR_REPR, 2);
+    
     gl.bindVertexArray(null);
+    gl.disableVertexAttribArray(loc_starVertex);
 
     return { vao, n };
 }
+
+// Rotation angle (degrees/second)
+const ANGLE_STEP = 45.0;
+// Last time that this function was called
+let g_last = Date.now();
+function getCurrentAngle(angle) {
+    // Calculate the elapsed time
+    let now = Date.now();
+    let elapsed = now - g_last;
+    g_last = now;
+    // Update the current rotation angle (adjusted by the elapsed time)
+    let newAngle = angle + (ANGLE_STEP * elapsed) / 1000.0;
+    return newAngle %= 360;
+}
+
+
