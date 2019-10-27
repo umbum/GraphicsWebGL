@@ -21,11 +21,11 @@ void main() {
  * starVertex : star를 이루는 12개의 점 각각이 들어옴
  * uMatT      : star 1개(=12개의 점)에 대해서 모두 같은 양으로 Translate. 
  *              한 번의 draw에 12개가 들어오는데 이들에 대해서 모두 같은 uMatT를 적용 할 것이므로.
+ * uMatS      : uMatT와 같다.
  * uMatR      : 모든 star(12*n)에 대해서 모두 같은 양으로 회전
  * 
  * 그니까 말하자면 uMatT가 원래 uniform이고 uMatR은 uniform-uniform 이다.
  */
-
 
 const FSHADER_SOURCE =
     `#version 300 es
@@ -119,13 +119,9 @@ function main() {
 function draw(gl, points, angle, ubo, buffer, matR, matT, matS) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    matT.setTranslate(0.3, 0, 0);
+    
     matR.setRotate(angle, 0, 0, 1);
-    matS.setScale(0.5, 0.5, 0.5);
-
-    gl.bindBuffer(gl.UNIFORM_BUFFER, ubo);
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, buffer); // Update three uniforms all at once.
-    gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+    matS.setScale(0.3, 0.3, 0.3);
     
     let { vao, n } = initVAO(gl, points);
     if (n < 0) {
@@ -136,9 +132,14 @@ function draw(gl, points, angle, ubo, buffer, matR, matT, matS) {
     gl.bindVertexArray(vao);
     // Draw the rectangle
     const starLen = STAR_REPR.length / 2
-    for (let i = 0; i < n; i += starLen) {
-        gl.drawArrays(gl.TRIANGLE_FAN, i, starLen);
-    }
+    points.forEach((p) => {
+        matT.setTranslate(p.coord.x, p.coord.y, 0);
+        gl.bindBuffer(gl.UNIFORM_BUFFER, ubo);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, buffer); // Update three uniforms all at once.
+        gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+        
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, starLen);
+    })
     gl.bindVertexArray(null);
 }
 
