@@ -1,51 +1,80 @@
 /**
- * @author : 엄성범 (umbum.tistory.com)
+ * @author : 엄성범 (umbum.dev)
  * @since  : 2019-11-15
  */
 "use strict";
 const loc_aPosition = 3;
 const loc_aTexCoord = 7;
-const VSHADER_SOURCE =
-`#version 300 es
-layout(location=${loc_aPosition}) in vec4 aPosition;
-layout(location=${loc_aTexCoord}) in vec2 aTexCoord;
-uniform mat4 uMvpMatrix;
-out vec2 vTexCoord;
-void main() {
-  gl_Position = uMvpMatrix * aPosition;
-  vTexCoord = aTexCoord;
-}`;
+const loc_aColor = 8;
+const shaders = {
+    cube : { // shader for texture rendered cube
+        vertex : `#version 300 es
+        layout(location=${loc_aPosition}) in vec4 aPosition;
+        layout(location=${loc_aTexCoord}) in vec2 aTexCoord;
+        uniform mat4 uMvpMatrix;
+        out vec2 vTexCoord;
+        void main() {
+          gl_Position = uMvpMatrix * aPosition;
+          vTexCoord = aTexCoord;
+        }`,
+        fragment : `#version 300 es
+        precision mediump float;
+        uniform sampler2D uSampler;
+        in vec2 vTexCoord;
+        out vec4 fColor;
+        void main() {
+          fColor = texture(uSampler, vTexCoord);
+        }`
+    },
+    line : { // shader for solid colored line
+        vertex : `#version 300 es
+        layout(location=${loc_aPosition}) in vec4 aPosition;
+        layout(location=${loc_aColor}) in vec4 aColor;
+        uniform mat4 uMVP;
+        out vec4 vColor;
+        void main() {
+            gl_Position = uMVP * aPosition;
+            vColor = aColor;
+        }`,
+        fragment : `#version 300 es
+        precision mediump float;
+        in vec4 vColor;
+        out vec4 fColor;
+        void main() {
+            fColor = vColor;
+        }`
+    }
+}
 
-// Fragment shader program
-const FSHADER_SOURCE =
-`#version 300 es
-precision mediump float;
-uniform sampler2D uSampler;
-in vec2 vTexCoord;
-out vec4 fColor;
-void main() {
-  fColor = texture(uSampler, vTexCoord);
-}`;
-// var VSHADER_SOURCE =
-//     'attribute vec4 a_Position;\n' +
-//     'attribute vec2 a_TexCoord;\n' +
-//     'uniform mat4 loc_uMvpMatrix ;\n' +
-//     'varying vec2 v_TexCoord;\n' +
-//     'void main() {\n' +
-//     '  gl_Position = loc_uMvpMatrix  * a_Position;\n' +
-//     '  v_TexCoord = a_TexCoord;\n' +
-//     '}\n';
+class CameraStatus {
+    constructor() {
+        this._longitudeDOM = document.getElementById("longitude");
+        this._latitudeDOM  = document.getElementById("latitude");
+    }
 
-// // Fragment shader program
-// var FSHADER_SOURCE =
-//     '#ifdef GL_ES\n' +
-//     'precision mediump float;\n' +
-//     '#endif\n' +
-//     'uniform sampler2D loc_uSampler;\n' +
-//     'varying vec2 v_TexCoord;\n' +
-//     'void main() {\n' +
-//     '  gl_FragColor = texture2D(loc_uSampler, v_TexCoord);\n' +
-//     '}\n';
+    get longitude() {
+        return parseInt(this._longitudeDOM.value);
+    }
+
+    get latitude() {
+        return parseInt(this._latitudeDOM.value);
+    }
+
+    increaseLongitude() {
+        this._longitudeDOM.value = this.longitude + 1;
+    }
+    decreaseLongitude() {
+        this._longitudeDOM.value = this.longitude - 1;
+    }
+    increaseLatitude() {
+        this._latitudeDOM.value = this.latitude + 1;
+    }
+    decreaseLatitude() {
+        this._latitudeDOM.value = this.latitude - 1;
+    }
+}
+
+const cameraStatus = new CameraStatus();
 
 function main() {
     // Retrieve <canvas> element
@@ -59,7 +88,7 @@ function main() {
     }
 
     // Initialize shaders
-    if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    if (!initShaders(gl, shaders.cube.vertex, shaders.cube.fragment)) {
         console.log('Failed to intialize shaders.');
         return;
     }
@@ -75,6 +104,12 @@ function main() {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
+    // Set texture
+    if (!initTextures(gl)) {
+        console.log('Failed to intialize the texture.');
+        return;
+    }
+
     // Get the storage locations of uniform variables
     var loc_uMvpMatrix  = gl.getUniformLocation(gl.program, 'uMvpMatrix');
     if (!loc_uMvpMatrix ) {
@@ -82,26 +117,46 @@ function main() {
         return;
     }
 
-    // Calculate the view projection matrix
-    var viewProjMatrix = new Matrix4();
-    viewProjMatrix.setPerspective(30.0, canvas.width / canvas.height, 1.0, 100.0);
-    viewProjMatrix.lookAt(3.0, 3.0, 7.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-
-    // Register the event handler
-    var currentAngle = [0.0, 0.0]; // Current rotation angle ([x-axis, y-axis] degrees)
-    initEventHandlers(canvas, currentAngle);
-
-    // Set texture
-    if (!initTextures(gl)) {
-        console.log('Failed to intialize the texture.');
-        return;
-    }
+    document.onkeydown = function(ev){ keydown(ev, gl); };
 
     var tick = function () {   // Start drawing
-        draw(gl, vao, n, viewProjMatrix, loc_uMvpMatrix , currentAngle);
+        draw(gl, vao, canvas, n, loc_uMvpMatrix);
         requestAnimationFrame(tick, canvas);
     };
     tick();
+}
+
+function keydown(ev) {
+    switch (ev.keyCode) {
+        case 39:  // →
+            cameraStatus.increaseLongitude();
+            break;
+        case 37:  // ←
+            cameraStatus.decreaseLongitude();
+            break;
+        case 38:  // ↑
+            cameraStatus.increaseLatitude();
+            break;
+        case 40:  // ↓
+            cameraStatus.decreaseLatitude();
+            break;
+    }
+}
+
+function draw(gl, vao, canvas, n, loc_uMvpMatrix) {
+    // Calculate The model view projection matrix and pass it to loc_uMvpMatrix 
+    const mvpMatrix = new Matrix4();
+    mvpMatrix.setPerspective(30.0, canvas.width / canvas.height, 1.0, 100.0);
+    mvpMatrix.translate(0, 0, -10);
+    mvpMatrix.rotate(cameraStatus.latitude, 1.0, 0.0, 0.0); // Rotation around x-axis
+    mvpMatrix.rotate(-cameraStatus.longitude, 0.0, 1.0, 0.0); // Rotation around y-axis
+    gl.uniformMatrix4fv(loc_uMvpMatrix , false, mvpMatrix.elements);
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
+
+    gl.bindVertexArray(vao);
+    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
+    gl.bindVertexArray(null);
 }
 
 function initVertexBuffers(gl) {
@@ -164,51 +219,6 @@ function initVertexBuffers(gl) {
     gl.bindVertexArray(null);
 
     return {vao, n:indices.length};
-}
-
-function initEventHandlers(canvas, currentAngle) {
-    var dragging = false;         // Dragging or not
-    var lastX = -1, lastY = -1;   // Last position of the mouse
-
-    canvas.onmousedown = function (ev) {   // Mouse is pressed
-        var x = ev.clientX, y = ev.clientY;
-        // Start dragging if a moue is in <canvas>
-        var rect = ev.target.getBoundingClientRect();
-        if (rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom) {
-            lastX = x; lastY = y;
-            dragging = true;
-        }
-    };
-
-    canvas.onmouseup = function (ev) { dragging = false; }; // Mouse is released
-
-    canvas.onmousemove = function (ev) { // Mouse is moved
-        var x = ev.clientX, y = ev.clientY;
-        if (dragging) {
-            var factor = 100 / canvas.height; // The rotation ratio
-            var dx = factor * (x - lastX);
-            var dy = factor * (y - lastY);
-            // Limit x-axis rotation angle to -90 to 90 degrees
-            currentAngle[0] = Math.max(Math.min(currentAngle[0] + dy, 90.0), -90.0);
-            currentAngle[1] = currentAngle[1] + dx;
-        }
-        lastX = x, lastY = y;
-    };
-}
-
-function draw(gl, vao, n, viewProjMatrix, loc_uMvpMatrix , currentAngle) {
-    // Calculate The model view projection matrix and pass it to loc_uMvpMatrix 
-    const mvpMatrix = new Matrix4();
-    mvpMatrix.set(viewProjMatrix);
-    mvpMatrix.rotate(currentAngle[0], 1.0, 0.0, 0.0); // Rotation around x-axis
-    mvpMatrix.rotate(currentAngle[1], 0.0, 1.0, 0.0); // Rotation around y-axis
-    gl.uniformMatrix4fv(loc_uMvpMatrix , false, mvpMatrix.elements);
-
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
-
-    gl.bindVertexArray(vao);
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
-    gl.bindVertexArray(null);
 }
 
 function initArrayBuffer(gl, data, num, type, loc_attribute) {
