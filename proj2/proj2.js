@@ -14,8 +14,8 @@ const shaders = {
         uniform mat4 uMvpMatrix;
         out vec2 vTexCoord;
         void main() {
-          gl_Position = uMvpMatrix * aPosition;
-          vTexCoord = aTexCoord;
+            gl_Position = uMvpMatrix * aPosition;
+            vTexCoord = aTexCoord;
         }`,
         fragment : `#version 300 es
         precision mediump float;
@@ -23,7 +23,7 @@ const shaders = {
         in vec2 vTexCoord;
         out vec4 fColor;
         void main() {
-          fColor = texture(uSampler, vTexCoord);
+            fColor = texture(uSampler, vTexCoord);
         }`,
         program : null
     },
@@ -116,9 +116,9 @@ function main() {
     }
 
     // Get the storage locations of uniform variables
-    cube.loc_uMvpMatrix = gl.getUniformLocation(shaders.cube.program, 'uMvpMatrix');
-    axes.loc_uMvpMatrix = gl.getUniformLocation(shaders.line.program, 'uMvpMatrix');
-    if (!axes.loc_uMvpMatrix || !cube.loc_uMvpMatrix) {
+    shaders.cube.loc_uMvpMatrix = gl.getUniformLocation(shaders.cube.program, 'uMvpMatrix');
+    shaders.line.loc_uMvpMatrix = gl.getUniformLocation(shaders.line.program, 'uMvpMatrix');
+    if (!shaders.cube.loc_uMvpMatrix || !shaders.line.loc_uMvpMatrix) {
         console.log('Failed to get the storage location of uniform variable');
         return;
     }
@@ -150,22 +150,46 @@ function handleKeydown(ev) {
 }
 
 function draw(gl, canvas, cube, axes) {
-    const mvpMatrix = new Matrix4();
-    mvpMatrix.setPerspective(30.0, canvas.width / canvas.height, 1.0, 100.0);
-    mvpMatrix.translate(0, 0, -10);
-    mvpMatrix.rotate(cameraStatus.latitude, 1.0, 0.0, 0.0); // Rotation around x-axis
-    mvpMatrix.rotate(-cameraStatus.longitude, 0.0, 1.0, 0.0); // Rotation around y-axis
-    
+    const [w, h] = [canvas.width, canvas.height];
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
 
+    // draw left side
+    const mat = new Matrix4();
+    mat.setPerspective(30.0, w / h, 1.0, 100.0);
+    mat.translate(0, 0, -30);
+    mat.rotate(30, 1.0, 0.0, 0.0);  // Rotation around x-axis
+    mat.rotate(-60, 0.0, 1.0, 0.0); // Rotation around y-axis
+
+    gl.viewport(0, h/4, w/2, h/2);
     gl.useProgram(shaders.cube.program);
-    gl.uniformMatrix4fv(cube.loc_uMvpMatrix , false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(shaders.cube.loc_uMvpMatrix , false, mat.elements);
     gl.bindVertexArray(cube.vao);
     gl.drawElements(gl.TRIANGLES, cube.n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
     gl.bindVertexArray(null);
 
     gl.useProgram(shaders.line.program);
-    gl.uniformMatrix4fv(axes.loc_uMvpMatrix , false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mat.elements);
+    gl.bindVertexArray(axes.vao);
+    gl.drawArrays(gl.LINES, 0, axes.n);
+    gl.bindVertexArray(null);
+    gl.useProgram(null);
+    
+    // draw right side
+    const mvpMatrix = new Matrix4();
+    mvpMatrix.setPerspective(30.0, w / h, 1.0, 100.0);
+    mvpMatrix.translate(0, 0, -10);
+    mvpMatrix.rotate(cameraStatus.latitude, 1.0, 0.0, 0.0);  // Rotation around x-axis
+    mvpMatrix.rotate(-cameraStatus.longitude, 0.0, 1.0, 0.0); // Rotation around y-axis
+
+    gl.viewport(w/2, h/4, w/2, h/2);
+    gl.useProgram(shaders.cube.program);
+    gl.uniformMatrix4fv(shaders.cube.loc_uMvpMatrix , false, mvpMatrix.elements);
+    gl.bindVertexArray(cube.vao);
+    gl.drawElements(gl.TRIANGLES, cube.n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
+    gl.bindVertexArray(null);
+
+    gl.useProgram(shaders.line.program);
+    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mvpMatrix.elements);
     gl.bindVertexArray(axes.vao);
     gl.drawArrays(gl.LINES, 0, axes.n);
     gl.bindVertexArray(null);
@@ -299,15 +323,14 @@ function loadTexture(gl, texture, loc_uSampler, image) {
     gl.uniform1i(loc_uSampler, 0);
 }
 
-function initAxes(gl)
-{
+function initAxes(gl) {
     const vertices = new Float32Array([
         0, 0, 0, 1, 0, 0,
-        5, 0, 0, 1, 0, 0,
+        10, 0, 0, 1, 0, 0,
         0, 0, 0, 0, 1, 0,
-        0, 5, 0, 0, 1, 0,
+        0, 10, 0, 0, 1, 0,
         0, 0, 0, 0, 0, 1,
-        0, 0, 5, 0, 0, 1
+        0, 0, 10, 0, 0, 1
     ]);
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
