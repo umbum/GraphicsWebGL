@@ -152,12 +152,12 @@ function draw(gl, canvas, cube, axes, circles) {
 
     // draw left side
     const mat = new Matrix4();
-    mat.setPerspective(30.0, w / h, 1.0, 100.0);
+    mat.setPerspective(45.0, w / (h*2), 1.0, 100.0);
     mat.translate(0, 0, -30);
     mat.rotate(30, 1.0, 0.0, 0.0);  // Rotation around x-axis
     mat.rotate(-60, 0.0, 1.0, 0.0); // Rotation around y-axis
 
-    gl.viewport(0, h/4, w/2, h/2);
+    gl.viewport(0, 0, w/2, h);
     gl.useProgram(shaders.cube.program);
     gl.uniformMatrix4fv(shaders.cube.loc_uMvpMatrix , false, mat.elements);
     gl.bindVertexArray(cube.vao);
@@ -177,12 +177,12 @@ function draw(gl, canvas, cube, axes, circles) {
     
     // draw right side
     const mvpMatrix = new Matrix4();
-    mvpMatrix.setPerspective(30.0, w / h, 1.0, 100.0);
+    mvpMatrix.setPerspective(35.0, w / (h*2), 1.0, 100.0);
     mvpMatrix.translate(0, 0, -10);
     mvpMatrix.rotate(cameraStatus.latitude, 1.0, 0.0, 0.0);  // Rotation around x-axis
     mvpMatrix.rotate(-cameraStatus.longitude, 0.0, 1.0, 0.0); // Rotation around y-axis
 
-    gl.viewport(w/2, h/4, w/2, h/2);
+    gl.viewport(w/2, 0, w/2, h);
     gl.useProgram(shaders.cube.program);
     gl.uniformMatrix4fv(shaders.cube.loc_uMvpMatrix , false, mvpMatrix.elements);
     gl.bindVertexArray(cube.vao);
