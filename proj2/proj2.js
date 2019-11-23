@@ -100,10 +100,7 @@ function main() {
     // Set the vertex information
     const cube = initVertexBuffers(gl);
     const axes = initAxes(gl);
-    if (cube.n < 0 || axes.n < 0) {
-        console.log('Failed to set the vertex information');
-        return;
-    }
+    const circles = initCircles(gl, 10, 60);
 
     // Set the clear color and enable the depth test
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -125,8 +122,8 @@ function main() {
 
     document.onkeydown = function(ev){ handleKeydown(ev, gl); };
 
-    var tick = function () {   // Start drawing
-        draw(gl, canvas, cube, axes);
+    const tick = function () {   // Start drawing
+        draw(gl, canvas, cube, axes, circles);
         requestAnimationFrame(tick, canvas);
     };
     tick();
@@ -149,7 +146,7 @@ function handleKeydown(ev) {
     }
 }
 
-function draw(gl, canvas, cube, axes) {
+function draw(gl, canvas, cube, axes, circles) {
     const [w, h] = [canvas.width, canvas.height];
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
 
@@ -171,6 +168,10 @@ function draw(gl, canvas, cube, axes) {
     gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mat.elements);
     gl.bindVertexArray(axes.vao);
     gl.drawArrays(gl.LINES, 0, axes.n);
+    gl.bindVertexArray(null);
+
+    gl.bindVertexArray(circles.vao);
+    gl.drawArrays(gl.LINE_LOOP, 0, circles.n);
     gl.bindVertexArray(null);
     gl.useProgram(null);
     
@@ -351,5 +352,41 @@ function initAxes(gl) {
     gl.bindVertexArray(null);
     
     return {vao, n:6};
+}
 
+/**
+ * 
+ * @param {*} gl 
+ * @param {*} r - radius
+ * @param {*} segmentCount - segmentCount 개수 만큼의 직선을 이어 원을 만든다.
+ */
+function initCircles(gl, r, segmentCount) {
+    const circleVertices = [];
+    const colors = [];
+    for (let i = 0; i < segmentCount; i++) {
+        const theta = 2.0 * Math.PI * i / segmentCount;
+        circleVertices.push(r * Math.cos(theta), r * Math.sin(theta), 0); 
+        colors.push(1, 1, 0);
+    }
+    const vertices = new Float32Array([...circleVertices, ...colors]);
+
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    
+    const vbo = gl.createBuffer();   // Create a buffer object
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    const SZ = vertices.BYTES_PER_ELEMENT;
+
+    gl.vertexAttribPointer(loc_aPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(loc_aPosition);
+
+    gl.vertexAttribPointer(loc_aColor, 3, gl.FLOAT, false, 0, SZ*3*segmentCount);
+    gl.enableVertexAttribArray(loc_aColor);
+ 
+    gl.bindVertexArray(null);
+    
+    return {vao, n:segmentCount};
 }
