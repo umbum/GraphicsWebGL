@@ -24,16 +24,17 @@ const shaders = {
         out vec4 fColor;
         void main() {
           fColor = texture(uSampler, vTexCoord);
-        }`
+        }`,
+        program : null
     },
     line : { // shader for solid colored line
         vertex : `#version 300 es
         layout(location=${loc_aPosition}) in vec4 aPosition;
         layout(location=${loc_aColor}) in vec4 aColor;
-        uniform mat4 uMVP;
+        uniform mat4 uMvpMatrix;
         out vec4 vColor;
         void main() {
-            gl_Position = uMVP * aPosition;
+            gl_Position = uMvpMatrix * aPosition;
             vColor = aColor;
         }`,
         fragment : `#version 300 es
@@ -42,7 +43,8 @@ const shaders = {
         out vec4 fColor;
         void main() {
             fColor = vColor;
-        }`
+        }`,
+        program : null
     }
 }
 
@@ -78,24 +80,27 @@ const cameraStatus = new CameraStatus();
 
 function main() {
     // Retrieve <canvas> element
-    var canvas = document.getElementById('webgl');
+    const canvas = document.getElementById('webgl');
 
     // Get the rendering context for WebGL
-    var gl = canvas.getContext('webgl2');
+    const gl = canvas.getContext('webgl2');
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
     }
 
     // Initialize shaders
-    if (!initShaders(gl, shaders.cube.vertex, shaders.cube.fragment)) {
-        console.log('Failed to intialize shaders.');
+    shaders.line.program = createProgram(gl, shaders.line.vertex, shaders.line.fragment);
+    shaders.cube.program = createProgram(gl, shaders.cube.vertex, shaders.cube.fragment);
+    if (!shaders.line.program || !shaders.cube.program) {
+        console.log('Failed to create program');
         return;
     }
 
     // Set the vertex information
-    const {vao, n} = initVertexBuffers(gl);
-    if (n < 0) {
+    const cube = initVertexBuffers(gl);
+    const axes = initAxes(gl);
+    if (cube.n < 0 || axes.n < 0) {
         console.log('Failed to set the vertex information');
         return;
     }
@@ -111,22 +116,23 @@ function main() {
     }
 
     // Get the storage locations of uniform variables
-    var loc_uMvpMatrix  = gl.getUniformLocation(gl.program, 'uMvpMatrix');
-    if (!loc_uMvpMatrix ) {
+    cube.loc_uMvpMatrix = gl.getUniformLocation(shaders.cube.program, 'uMvpMatrix');
+    axes.loc_uMvpMatrix = gl.getUniformLocation(shaders.line.program, 'uMvpMatrix');
+    if (!axes.loc_uMvpMatrix || !cube.loc_uMvpMatrix) {
         console.log('Failed to get the storage location of uniform variable');
         return;
     }
 
-    document.onkeydown = function(ev){ keydown(ev, gl); };
+    document.onkeydown = function(ev){ handleKeydown(ev, gl); };
 
     var tick = function () {   // Start drawing
-        draw(gl, vao, canvas, n, loc_uMvpMatrix);
+        draw(gl, canvas, cube, axes);
         requestAnimationFrame(tick, canvas);
     };
     tick();
 }
 
-function keydown(ev) {
+function handleKeydown(ev) {
     switch (ev.keyCode) {
         case 39:  // →
             cameraStatus.increaseLongitude();
@@ -143,20 +149,27 @@ function keydown(ev) {
     }
 }
 
-function draw(gl, vao, canvas, n, loc_uMvpMatrix) {
-    // Calculate The model view projection matrix and pass it to loc_uMvpMatrix 
+function draw(gl, canvas, cube, axes) {
     const mvpMatrix = new Matrix4();
     mvpMatrix.setPerspective(30.0, canvas.width / canvas.height, 1.0, 100.0);
     mvpMatrix.translate(0, 0, -10);
     mvpMatrix.rotate(cameraStatus.latitude, 1.0, 0.0, 0.0); // Rotation around x-axis
     mvpMatrix.rotate(-cameraStatus.longitude, 0.0, 1.0, 0.0); // Rotation around y-axis
-    gl.uniformMatrix4fv(loc_uMvpMatrix , false, mvpMatrix.elements);
-
+    
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
 
-    gl.bindVertexArray(vao);
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
+    gl.useProgram(shaders.cube.program);
+    gl.uniformMatrix4fv(cube.loc_uMvpMatrix , false, mvpMatrix.elements);
+    gl.bindVertexArray(cube.vao);
+    gl.drawElements(gl.TRIANGLES, cube.n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
     gl.bindVertexArray(null);
+
+    gl.useProgram(shaders.line.program);
+    gl.uniformMatrix4fv(axes.loc_uMvpMatrix , false, mvpMatrix.elements);
+    gl.bindVertexArray(axes.vao);
+    gl.drawArrays(gl.LINES, 0, axes.n);
+    gl.bindVertexArray(null);
+    gl.useProgram(null);
 }
 
 function initVertexBuffers(gl) {
@@ -221,6 +234,7 @@ function initVertexBuffers(gl) {
     return {vao, n:indices.length};
 }
 
+
 function initArrayBuffer(gl, data, num, type, loc_attribute) {
     // Create a buffer object
     var buffer = gl.createBuffer();
@@ -248,7 +262,7 @@ function initTextures(gl) {
     }
 
     // Get the storage location of loc_uSampler
-    var loc_uSampler = gl.getUniformLocation(gl.program, 'uSampler');
+    var loc_uSampler = gl.getUniformLocation(shaders.cube.program, 'uSampler');
     if (!loc_uSampler) {
         console.log('Failed to get the storage location of uSampler');
         return false;
@@ -281,5 +295,38 @@ function loadTexture(gl, texture, loc_uSampler, image) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
 
     // Pass the texure unit 0 to loc_uSampler
+    gl.useProgram(shaders.cube.program);
     gl.uniform1i(loc_uSampler, 0);
+}
+
+function initAxes(gl)
+{
+    const vertices = new Float32Array([
+        0, 0, 0, 1, 0, 0,
+        5, 0, 0, 1, 0, 0,
+        0, 0, 0, 0, 1, 0,
+        0, 5, 0, 0, 1, 0,
+        0, 0, 0, 0, 0, 1,
+        0, 0, 5, 0, 0, 1
+    ]);
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    
+    const vbo = gl.createBuffer();   // Create a buffer object
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    const SZ = vertices.BYTES_PER_ELEMENT;
+
+    gl.vertexAttribPointer(loc_aPosition, 3, gl.FLOAT, false, SZ*6, 0);
+    gl.enableVertexAttribArray(loc_aPosition);
+
+    gl.vertexAttribPointer(loc_aColor, 3, gl.FLOAT, false, SZ*6, SZ*3);
+    gl.enableVertexAttribArray(loc_aColor);
+ 
+    gl.bindVertexArray(null);
+    
+    return {vao, n:6};
+
 }
