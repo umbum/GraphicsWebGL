@@ -52,6 +52,8 @@ class CameraStatus {
     constructor() {
         this._longitudeDOM = document.getElementById("longitude");
         this._latitudeDOM  = document.getElementById("latitude");
+        this.INITIAL_LONGITUDE = this.longitude;
+        this.INITIAL_LATITUDE = this.latitude;
     }
 
     get longitude() {
@@ -100,7 +102,7 @@ function main() {
     // Set the vertex information
     const cube = initVertexBuffers(gl);
     const axes = initAxes(gl);
-    const circles = initCircles(gl, 10, 60);
+    const circles = initCircles(gl, 10, 100);
 
     // Set the clear color and enable the depth test
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -148,14 +150,16 @@ function handleKeydown(ev) {
 
 function draw(gl, canvas, cube, axes, circles) {
     const [w, h] = [canvas.width, canvas.height];
+    const OBLIQUE_PARAM = 10;  // left side를 볼 때 right와 동일한 각도가 아니라 약간 비스듬히 바라보기 위해
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
 
     // draw left side
     const mat = new Matrix4();
     mat.setPerspective(45.0, w / (h*2), 1.0, 100.0);
     mat.translate(0, 0, -30);
-    mat.rotate(30, 1.0, 0.0, 0.0);  // Rotation around x-axis
-    mat.rotate(-60, 0.0, 1.0, 0.0); // Rotation around y-axis
+    mat.rotate(cameraStatus.INITIAL_LATITUDE, 1.0, 0.0, 0.0);  // Rotation around x-axis
+    mat.rotate(-cameraStatus.INITIAL_LONGITUDE + OBLIQUE_PARAM, 0.0, 1.0, 0.0); // Rotation around y-axis
 
     gl.viewport(0, 0, w/2, h);
     gl.useProgram(shaders.cube.program);
@@ -171,7 +175,13 @@ function draw(gl, canvas, cube, axes, circles) {
     gl.bindVertexArray(null);
 
     gl.bindVertexArray(circles.vao);
+    gl.drawArrays(gl.LINE_LOOP, circles.n, circles.n);
+
+    mat.rotate(-90 + cameraStatus.longitude, 0, 1, 0);
+    mat.rotate(cameraStatus.latitude, 0, 0, 1);
+    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mat.elements);
     gl.drawArrays(gl.LINE_LOOP, 0, circles.n);
+    gl.drawArrays(gl.LINES, circles.n*2, 2);
     gl.bindVertexArray(null);
     gl.useProgram(null);
     
@@ -361,14 +371,26 @@ function initAxes(gl) {
  * @param {*} segmentCount - segmentCount 개수 만큼의 직선을 이어 원을 만든다.
  */
 function initCircles(gl, r, segmentCount) {
-    const circleVertices = [];
-    const colors = [];
+    const xCircle = [];
     for (let i = 0; i < segmentCount; i++) {
         const theta = 2.0 * Math.PI * i / segmentCount;
-        circleVertices.push(r * Math.cos(theta), r * Math.sin(theta), 0); 
-        colors.push(1, 1, 0);
+        xCircle.push(r * Math.cos(theta), r * Math.sin(theta), 0); 
+        xCircle.push(1, 1, 0);
     }
-    const vertices = new Float32Array([...circleVertices, ...colors]);
+
+    const yCircle = [];
+    for (let i = 0; i < segmentCount; i++) {
+        const theta = 2.0 * Math.PI * i / segmentCount;
+        yCircle.push(r * Math.cos(theta), 0, r * Math.sin(theta)); 
+        yCircle.push(1, 1, 1);
+    }
+    
+    const rLine = [
+        0, 0, 0,   1, 0, 1,
+        r, 0, 0,   1, 0, 1
+    ]
+
+    const vertices = new Float32Array([...xCircle, ...yCircle, ...rLine]);
 
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
@@ -380,13 +402,14 @@ function initCircles(gl, r, segmentCount) {
 
     const SZ = vertices.BYTES_PER_ELEMENT;
 
-    gl.vertexAttribPointer(loc_aPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(loc_aPosition, 3, gl.FLOAT, false, SZ*6, 0);
     gl.enableVertexAttribArray(loc_aPosition);
 
-    gl.vertexAttribPointer(loc_aColor, 3, gl.FLOAT, false, 0, SZ*3*segmentCount);
+    gl.vertexAttribPointer(loc_aColor, 3, gl.FLOAT, false, SZ*6, SZ*3);
     gl.enableVertexAttribArray(loc_aColor);
  
     gl.bindVertexArray(null);
     
     return {vao, n:segmentCount};
 }
+
