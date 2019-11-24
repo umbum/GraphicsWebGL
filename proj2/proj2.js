@@ -80,6 +80,23 @@ class CameraStatus {
 
 const cameraStatus = new CameraStatus();
 
+function handleKeydown(ev) {
+    switch (ev.keyCode) {
+        case 39:  // →
+            cameraStatus.increaseLongitude();
+            break;
+        case 37:  // ←
+            cameraStatus.decreaseLongitude();
+            break;
+        case 38:  // ↑
+            cameraStatus.increaseLatitude();
+            break;
+        case 40:  // ↓
+            cameraStatus.decreaseLatitude();
+            break;
+    }
+}
+
 function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('webgl');
@@ -125,51 +142,37 @@ function main() {
     document.onkeydown = function(ev){ handleKeydown(ev, gl); };
 
     const tick = function () {   // Start drawing
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
         draw(gl, canvas, cube, axes, circles);
         requestAnimationFrame(tick, canvas);
     };
     tick();
 }
 
-function handleKeydown(ev) {
-    switch (ev.keyCode) {
-        case 39:  // →
-            cameraStatus.increaseLongitude();
-            break;
-        case 37:  // ←
-            cameraStatus.decreaseLongitude();
-            break;
-        case 38:  // ↑
-            cameraStatus.increaseLatitude();
-            break;
-        case 40:  // ↓
-            cameraStatus.decreaseLatitude();
-            break;
-    }
+function draw(gl, canvas, cube, axes, circles) {
+    drawLeftSide(gl, canvas, cube, axes, circles);
+    drawRightSide(gl, canvas, cube, axes);
 }
 
-function draw(gl, canvas, cube, axes, circles) {
+function drawLeftSide(gl, canvas, cube, axes, circles) {
     const [w, h] = [canvas.width, canvas.height];
     const OBLIQUE_PARAM = 10;  // left side를 볼 때 right와 동일한 각도가 아니라 약간 비스듬히 바라보기 위해
 
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);     // Clear buffers
-
-    // draw left side
-    const mat = new Matrix4();
-    mat.setPerspective(45.0, w / (h*2), 1.0, 100.0);
-    mat.translate(0, 0, -30);
-    mat.rotate(cameraStatus.INITIAL_LATITUDE, 1.0, 0.0, 0.0);  // Rotation around x-axis
-    mat.rotate(-cameraStatus.INITIAL_LONGITUDE + OBLIQUE_PARAM, 0.0, 1.0, 0.0); // Rotation around y-axis
+    const mvpMatrix = new Matrix4();
+    mvpMatrix.setPerspective(45.0, w / (h*2), 1.0, 100.0);
+    mvpMatrix.translate(0, 0, -30);
+    mvpMatrix.rotate(cameraStatus.INITIAL_LATITUDE, 1.0, 0.0, 0.0);  // Rotation around x-axis
+    mvpMatrix.rotate(-cameraStatus.INITIAL_LONGITUDE + OBLIQUE_PARAM, 0.0, 1.0, 0.0); // Rotation around y-axis
 
     gl.viewport(0, 0, w/2, h);
     gl.useProgram(shaders.cube.program);
-    gl.uniformMatrix4fv(shaders.cube.loc_uMvpMatrix , false, mat.elements);
+    gl.uniformMatrix4fv(shaders.cube.loc_uMvpMatrix , false, mvpMatrix.elements);
     gl.bindVertexArray(cube.vao);
     gl.drawElements(gl.TRIANGLES, cube.n, gl.UNSIGNED_BYTE, 0);   // Draw the cube
     gl.bindVertexArray(null);
 
     gl.useProgram(shaders.line.program);
-    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mat.elements);
+    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mvpMatrix.elements);
     gl.bindVertexArray(axes.vao);
     gl.drawArrays(gl.LINES, 0, axes.n);
     gl.bindVertexArray(null);
@@ -177,17 +180,20 @@ function draw(gl, canvas, cube, axes, circles) {
     gl.bindVertexArray(circles.vao);
     gl.drawArrays(gl.LINE_LOOP, circles.n, circles.n);
 
-    mat.rotate(-90 + cameraStatus.longitude, 0, 1, 0);
-    mat.rotate(cameraStatus.latitude, 0, 0, 1);
-    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mat.elements);
+    mvpMatrix.rotate(-90 + cameraStatus.longitude, 0, 1, 0);
+    mvpMatrix.rotate(cameraStatus.latitude, 0, 0, 1);
+    gl.uniformMatrix4fv(shaders.line.loc_uMvpMatrix , false, mvpMatrix.elements);
     gl.drawArrays(gl.LINE_LOOP, 0, circles.n);
     gl.drawArrays(gl.LINES, circles.n*2, 2);
     gl.bindVertexArray(null);
     gl.useProgram(null);
+}
+
+function drawRightSide(gl, canvas, cube, axes) {
+    const [w, h] = [canvas.width, canvas.height];
     
-    // draw right side
     const mvpMatrix = new Matrix4();
-    mvpMatrix.setPerspective(35.0, w / (h*2), 1.0, 100.0);
+    mvpMatrix.setPerspective(45.0, w / (h*2), 1.0, 100.0);
     mvpMatrix.translate(0, 0, -10);
     mvpMatrix.rotate(cameraStatus.latitude, 1.0, 0.0, 0.0);  // Rotation around x-axis
     mvpMatrix.rotate(-cameraStatus.longitude, 0.0, 1.0, 0.0); // Rotation around y-axis
