@@ -10,14 +10,16 @@ function main()
 	let gl = canvas.getContext("webgl2");
 
 	gl.enable(gl.DEPTH_TEST);
-	gl.clearColor(0.2, 0.2, 0.2, 1.0);
-
+    gl.clearColor(0.2, 0.2, 0.2, 1.0);
+    
 	let V = new Matrix4();
-	V.setLookAt(6, 4, 6, 0, 0, 0, 0, 1, 0);
+    V.setLookAt(6, 4, 6, 0, 0, 0, 0, 1, 0);
 
 	let P = new Matrix4();
-	P.setPerspective(60, 1, 1, 100); 
-
+    P.setPerspective(60, (canvas.width / canvas.height) * 2, 1, 100); 
+    const P_lower = new Matrix4();
+    P_lower.setPerspective(60, (canvas.width / canvas.height), 1, 100);
+    
 	let list_shaders = [];
 
 	// initializes shaders (reflection models)
@@ -66,7 +68,7 @@ function main()
 	// initializes the meshes
 	let list_meshes = [];
     let sun = create_mesh_sphere(gl, 100);
-    sun.M.setScale(0.6, 0.6, 0.6);
+    sun.M.setScale(0.7, 0.7, 0.7);
     let earth = create_mesh_sphere(gl, 100);
     let moon = create_mesh_sphere(gl, 100);
     
@@ -81,14 +83,16 @@ function main()
 	{
 		let now = Date.now();
 		let elapsed = now - t_last;
-		t_last = now;
-
+        t_last = now;
+        
 		list_lights[0].M.rotate(( (ANGLE_STEP_LIGHT * elapsed) / 1000.0) % 360.0, 0, 1, 0);
 		if(document.getElementById("mesh-rotating").checked)
 			list_meshes[document.getElementById("objects").value].M.rotate(
 				-((ANGLE_STEP_MESH * elapsed) / 1000.0) % 360.0, 0, 1, 0);
 
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        gl.viewport(0, canvas.height/2, canvas.width, canvas.height/2);
 
 		axes.render(gl, V, P);
         
@@ -105,7 +109,7 @@ function main()
 			list_lights,
 			__js_materials["ruby"], V, P);
         
-        earth.M.setScale(0.5, 0.5, 0.5);
+        earth.M.setScale(0.8, 0.8, 0.8);
         /**
          * rotate 후 translate : 공전
          * translate 후 rotate : 자전
@@ -123,13 +127,29 @@ function main()
             __js_materials["gold"], V, P);
         
         moon.M = earth_base;
-        moon.M.scale(0.7, 0.7, 0.7);
+        moon.M.scale(0.6, 0.6, 0.6);
         moon.M.rotate((now*0.05) % 360.0, 0, 1, 0);
-        moon.M.translate(3, 0, 0);
+        moon.M.translate(3.5, 0, 0);
         moon.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
             __js_materials["emerald"], V, P);
+
+        // lower-left viewport
+        gl.viewport(0, 0, canvas.width/2, canvas.height/2);
+        earth.M.setScale(2, 2, 2);
+        earth.render(gl, 
+            list_shaders[document.getElementById("shading-models").value],
+            list_lights,
+            __js_materials["gold"], V, P_lower);
+        
+        // lower-right viewport
+        gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height/2)
+        moon.M.setScale(2, 2 ,2);
+        moon.render(gl, 
+            list_shaders[document.getElementById("shading-models").value],
+            list_lights,
+            __js_materials["emerald"], V, P_lower);
 
 		requestAnimationFrame(tick, canvas); // Request that the browser calls tick
 	};
