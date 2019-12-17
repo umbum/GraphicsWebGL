@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+        <meta charset="utf-8" />
+        <title>proj3</title>
+	</head>
+    <body onload="main()">
+        <h1>Project #3 (fall,2019) SungBum Um</h1>
+		<canvas id="webgl" width="1024" height="1024">
+			Please use a browser that supports "canvas"
+		</canvas>
+		<table>
+			<tr>
+				<td>material</td>
+				<td><select id="materials"></select></td>
+			</tr>
+			<tr>
+				<td>shading model</td>
+				<td>
+					<select id="shading-models">
+						<option value="Blinn-Gouraud" selected>Blinn-Gouraud</option>
+						<option value="Phong-Gouraud">Phong-Gouraud</option>
+						<option value="Blinn-Phong">Blinn-Phong</option>
+						<option value="Phong-Phong">Phong-Phong</option>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<td><input type="checkbox" id="light1" checked>static light</td>
+				<td>
+					(
+					type
+					<select id="light1-type">
+						<option value="directional">directional</option>
+						<option value="positional" selected>positional</option>
+					</select>
+					)
+				</td>
+				
+			</tr>
+			<tr>
+				<td><input type="checkbox" id="light0" checked>rotating light</td>
+				<td>
+					(
+					type
+					<select id="light0-type">
+						<option value="directional">directional</option>
+						<option value="positional" selected>positional</option>
+					</select>
+					)
+				</td>
+			</tr>
+			<tr>
+				<td>object</td>
+				<td>
+					<select id="objects">
+						<option value="sphere" selected>sphere</option>
+					</select>
+					(
+					<input type="checkbox" id="mesh-rotating" >
+					rotating)
+				</td>
+			</tr>
+		</table>
+		<script id="vert-Blinn-Gouraud" type="x-shader/x-vertex">#version 300 es
+			layout(location=0) in vec4	aPosition;
+			layout(location=1) in vec3	aNormal;
+			uniform mat4	MVP;
+			uniform mat4	MV;
+			uniform mat4	matNormal;
+			struct TMaterial
+			{
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				vec3	emission;
+				float	shininess;
+			};
+			struct TLight
+			{
+				vec4	position;
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				bool	enabled;
+			};
+			uniform TMaterial	material;
+			uniform TLight		light[2];
+			out vec3		vColor;
+			void main()
+			{
+				vec3	n = normalize(mat3(matNormal)*aNormal);
+				vec4	vPosEye = MV*aPosition;
+				vec3	l;
+				vec3	v = normalize(-vPosEye.xyz);
+				vColor = vec3(0.0);
+				for(int i=0 ; i<2 ; i++)
+				{
+					if(light[i].enabled)
+					{
+						if(light[i].position.w == 1.0)
+							l = normalize((light[i].position - vPosEye).xyz);
+						else
+							l = normalize((light[i].position).xyz);
+						vec3	h = normalize(l + v);
+						float	l_dot_n = max(dot(l, n), 0.0);
+						vec3	ambient = light[i].ambient * material.ambient;
+						vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+						vec3	specular = vec3(0.0);
+						if(l_dot_n > 0.0)
+						{
+							specular = light[i].specular * material.specular * pow(max(dot(h, n), 0.0), material.shininess);
+						}
+						vColor += ambient + diffuse + specular;
+					}
+				}
+				gl_Position = MVP*aPosition;
+			}
+		</script>
+		<script id="frag-Blinn-Gouraud" type="x-shader/x-fragment">#version 300 es
+			#ifdef GL_ES
+			precision mediump float;
+			#endif
+			in vec3	vColor;
+            out vec4 fColor;
+			void main()
+			{
+				fColor = vec4(vColor, 1);
+			}
+		</script>
+		<script id="vert-Phong-Gouraud" type="x-shader/x-vertex">#version 300 es
+			layout(location=0) in vec4 aPosition;
+			layout(location=1) in vec3 aNormal;
+			uniform mat4	MVP;
+			uniform mat4	MV;
+			uniform mat4	matNormal;
+			struct TMaterial
+			{
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				vec3	emission;
+				float	shininess;
+			};
+			struct TLight
+			{
+				vec4	position;
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				bool	enabled;
+			};
+			uniform TMaterial	material;
+			uniform TLight		light[2];
+			out vec3	vColor;
+			void main()
+			{
+				vec3	n = normalize(mat3(matNormal)*aNormal);	// n is the normal vector in eye coordinate system
+				vec4	vPosEye = MV*aPosition;	// vPosEye is the vertex position in eye coordinate system
+				vec3	l;
+				vec3	v = normalize(-vPosEye.xyz);
+				vColor = vec3(0.0);
+				for(int i=0 ; i<2 ; i++)
+				{
+					if(light[i].enabled)
+					{
+						if(light[i].position.w == 1.0)
+							l = normalize((light[i].position - vPosEye).xyz);
+						else
+							l = normalize((light[i].position).xyz);
+						vec3	r = reflect(-l, n);
+						float	l_dot_n = max(dot(l, n), 0.0);
+						vec3	ambient = light[i].ambient * material.ambient;
+						vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+						vec3	specular = vec3(0.0);
+						if(l_dot_n > 0.0)
+						{
+							specular = light[i].specular * material.specular * pow(max(dot(r, v), 0.0), material.shininess);
+						}
+						vColor += ambient + diffuse + specular;
+					}
+				}
+				gl_Position = MVP*aPosition;
+			}
+		</script>
+		<script id="frag-Phong-Gouraud" type="x-shader/x-fragment">#version 300 es
+			#ifdef GL_ES
+			precision mediump float;
+			#endif
+			in vec3	vColor;
+            out vec4 fColor;
+			void main()
+			{
+				fColor = vec4(vColor, 1);
+			}
+		</script>
+		<script id="vert-Blinn-Phong" type="x-shader/x-vertex">#version 300 es
+			layout(location=0) in vec4 aPosition;
+			layout(location=1) in vec3 aNormal;
+			uniform mat4	MVP;
+			uniform mat4	MV;
+			uniform mat4	matNormal;
+			out vec3	vNormal;
+			out vec4	vPosEye;
+			void main()
+			{
+				vPosEye = MV*aPosition;
+				vNormal = normalize(mat3(matNormal)*aNormal);
+				gl_Position = MVP*aPosition;
+			}
+		</script>
+		<script id="frag-Blinn-Phong" type="x-shader/x-fragment">#version 300 es
+			#ifdef GL_ES
+			precision mediump float;
+			#endif
+			in vec4	vPosEye;
+			in vec3	vNormal;
+            out vec4 fColor;
+			struct TMaterial
+			{
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				vec3	emission;
+				float	shininess;
+			};
+			struct TLight
+			{
+				vec4	position;
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				bool	enabled;
+			};
+			uniform TMaterial	material;
+			uniform TLight		light[2];
+			void main()
+			{
+				vec3	n = normalize(vNormal);
+				vec3	l;
+				vec3	v = normalize(-vPosEye.xyz);
+				fColor = vec4(0.0);
+				for(int i=0 ; i<2 ; i++)
+				{
+					if(light[i].enabled)
+					{
+						if(light[i].position.w == 1.0)
+							l = normalize((light[i].position - vPosEye).xyz);		// positional light
+						else
+							l = normalize((light[i].position).xyz);	// directional light
+						float	l_dot_n = max(dot(l, n), 0.0);
+						vec3	ambient = light[i].ambient * material.ambient;
+						vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+						vec3	specular = vec3(0.0);
+						if(l_dot_n > 0.0)
+						{
+							vec3	h = normalize(l + v);
+							specular = light[i].specular * material.specular * pow(max(dot(h, n), 0.0), material.shininess);
+						}
+						fColor += vec4(ambient + diffuse + specular, 1);
+					}
+				}
+				fColor.w = 1.0;
+			}
+		</script>
+		<script id="vert-Phong-Phong" type="x-shader/x-vertex">#version 300 es
+			layout(location=0) in vec4	aPosition;
+			layout(location=1) in vec3	aNormal;
+			uniform mat4	MVP;
+			uniform mat4	MV;
+			uniform mat4	matNormal;
+			out vec3	vNormal;
+			out vec4	vPosEye;
+			void main()
+			{
+				vPosEye = MV*aPosition;
+				vNormal = normalize((matNormal*vec4(aNormal,0)).xyz);
+				gl_Position = MVP*aPosition;
+			}
+		</script>
+		<script id="frag-Phong-Phong" type="x-shader/x-fragment">#version 300 es
+			#ifdef GL_ES
+			precision mediump float;
+			#endif
+			in vec4 vPosEye;
+			in vec3	vNormal;
+            out vec4 fColor;
+			struct TMaterial
+			{
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				vec3	emission;
+				float	shininess;
+			};
+			struct TLight
+			{
+				vec4	position;
+				vec3	ambient;
+				vec3	diffuse;
+				vec3	specular;
+				bool	enabled;
+			};
+			uniform TMaterial	material;
+			uniform TLight		light[2];
+			void main()
+			{
+				vec3	n = normalize(vNormal);
+				vec3	l;
+				vec3	v = normalize(-vPosEye.xyz);
+				fColor = vec4(0.0);
+				for(int i=0 ; i<2 ; i++)
+				{
+					if(light[i].enabled)
+					{
+						if(light[i].position.w == 1.0)
+							l = normalize((light[i].position - vPosEye).xyz);
+						else
+							l = normalize((light[i].position).xyz);
+						vec3	r = reflect(-l, n);
+						float	l_dot_n = max(dot(l, n), 0.0);
+						vec3	ambient = light[i].ambient * material.ambient;
+						vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+						vec3	specular = vec3(0.0);
+						if(l_dot_n > 0.0)
+						{
+							specular = light[i].specular * material.specular * pow(max(dot(r, v), 0.0), material.shininess);
+						}
+						fColor += vec4(ambient + diffuse + specular, 1);
+					}
+				}
+				fColor.w = 1.0;
+			}
+		</script>
+		<script src="../lib/webgl-utils.js"></script>
+		<script src="../lib/webgl-debug.js"></script>
+		<script src="../lib/cuon-utils.js"></script>
+		<script src="../lib/cuon-matrix.js"></script>
+		<script src="class_material.js"></script>
+		<script src="class_shader.js"></script>
+		<script src="class_light.js"></script>
+		<script src="class_mesh.js"></script>
+		<script src="class_axes.js"></script>
+		<script src="create_mesh_sphere.js"></script>
+		<script src="proj3.js"></script>
+	</body>
+</html>
