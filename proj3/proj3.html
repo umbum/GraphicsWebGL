@@ -11,6 +11,24 @@
 		</canvas>
 		<table>
 			<tr>
+				<td>rotating speed</td>
+				<td><input type=range id="earth-rotating" min=0 max=360 value=60></td>
+				<td>rotating speed</td>
+				<td><input type=range id="moon-rotating" min=0 max=360 value=60></td>
+			</tr>
+			<tr>
+				<td>Earth revolving speed</td>
+				<td><input type=range id="earth-revolving" min=0 max=360 value=30></td>
+				<td>Moon revolving speed</td>
+				<td><input type=range id="moon-revolving" min=0 max=360 value=30></td>
+			</tr>
+			<tr>
+				<td>height</td>
+				<td><input type=range id="earth-height" min=0 max=360 value=60></td>
+				<td>height</td>
+				<td><input type=range id="moon-height" min=0 max=360 value=60></td>
+			</tr>
+			<tr>
 				<td>material</td>
 				<td><select id="materials"></select></td>
 			</tr>
@@ -18,47 +36,11 @@
 				<td>shading model</td>
 				<td>
 					<select id="shading-models">
-						<option value="Blinn-Gouraud" selected>Blinn-Gouraud</option>
+						<option value="Blinn-Gouraud">Blinn-Gouraud</option>
 						<option value="Phong-Gouraud">Phong-Gouraud</option>
-						<option value="Blinn-Phong">Blinn-Phong</option>
+						<option value="Blinn-Phong" selected>Blinn-Phong</option>
 						<option value="Phong-Phong">Phong-Phong</option>
 					</select>
-				</td>
-			</tr>
-			<tr>
-				<td><input type="checkbox" id="light1" checked>static light</td>
-				<td>
-					(
-					type
-					<select id="light1-type">
-						<option value="directional">directional</option>
-						<option value="positional" selected>positional</option>
-					</select>
-					)
-				</td>
-				
-			</tr>
-			<tr>
-				<td><input type="checkbox" id="light0" checked>rotating light</td>
-				<td>
-					(
-					type
-					<select id="light0-type">
-						<option value="directional">directional</option>
-						<option value="positional" selected>positional</option>
-					</select>
-					)
-				</td>
-			</tr>
-			<tr>
-				<td>object</td>
-				<td>
-					<select id="objects">
-						<option value="sphere" selected>sphere</option>
-					</select>
-					(
-					<input type="checkbox" id="mesh-rotating" >
-					rotating)
 				</td>
 			</tr>
 		</table>
