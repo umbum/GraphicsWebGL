@@ -35,6 +35,10 @@ class RotationStatus {
 	}
 }
 
+function degree_to_rad(degree) {
+	return degree * Math.PI / 180;
+}
+
 function main() {
 	let canvas = document.getElementById('webgl');
 	let gl = canvas.getContext("webgl2");
@@ -130,7 +134,9 @@ function main() {
         // moon에서 earth를 기반으로 공전하기 위해 저장
         let earth_base = new Matrix4(earth.M);
 
-        earth.M.rotate(earth_stat.rotating_angle, 0, 1, 0);
+		earth.M.rotate(earth_stat.rotating_angle,
+					 Math.sin(degree_to_rad(23.5)), 
+					 Math.cos(degree_to_rad(23.5)), 0);
         earth.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
@@ -149,7 +155,9 @@ function main() {
         // lower-left viewport
         gl.viewport(0, 0, canvas.width/2, canvas.height/2);
 		earth.M.setTranslate(0, 0, -4);
-		earth.M.rotate(earth_stat.rotating_angle, 0, 1, 0);
+		earth.M.rotate(earth_stat.rotating_angle, 
+					Math.sin(degree_to_rad(23.5)), 
+					Math.cos(degree_to_rad(23.5)), 0);
         earth.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
