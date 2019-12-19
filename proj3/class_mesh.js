@@ -153,7 +153,8 @@ class Mesh
         for(let texname in textures)
         {
             gl.activeTexture(gl.TEXTURE0 + i);
-            gl.bindTexture(gl.TEXTURE_2D, textures[texname].texid);
+            gl.bindTexture(gl.TEXTURE_2D, textures[texname]);
+            // gl.bindTexture(gl.TEXTURE_2D, textures[texname].texid);
             gl.uniform1i(gl.getUniformLocation(h_prog, texname), i);
             i++;
         }

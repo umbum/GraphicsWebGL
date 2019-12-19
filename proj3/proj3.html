@@ -44,24 +44,31 @@
 		<script id="vert-Blinn-Phong" type="x-shader/x-vertex">#version 300 es
 			layout(location=0) in vec4 aPosition;
 			layout(location=1) in vec3 aNormal;
+			layout(location=2) in vec2 aTexCoord;
 			uniform mat4	MVP;
 			uniform mat4	MV;
 			uniform mat4	matNormal;
 			out vec3	vNormal;
 			out vec4	vPosEye;
+			out vec2	vTexCoord;
 			void main()
 			{
 				vPosEye = MV*aPosition;
 				vNormal = normalize(mat3(matNormal)*aNormal);
 				gl_Position = MVP*aPosition;
+				vTexCoord = aTexCoord;
 			}
 		</script>
+		<!-- vTexCoord는 TextureCoordinate 즉 이미지 좌표계에서 이미지를 분할한 조각을 나타내는 좌표.
+			image data는 texture unit을 통해 접근하게 되며, uSampler로 texture unit id를 지정.
+			그래서 texture(uSampler, vTexCoord) 가 된다. -->
 		<script id="frag-Blinn-Phong" type="x-shader/x-fragment">#version 300 es
 			#ifdef GL_ES
 			precision mediump float;
 			#endif
 			in vec4	vPosEye;
 			in vec3	vNormal;
+			in vec2 vTexCoord;
             out vec4 fColor;
 			struct TMaterial
 			{
@@ -81,32 +88,36 @@
 			};
 			uniform TMaterial	material;
 			uniform TLight		light[2];
+			uniform sampler2D	uSampler;
 			void main()
 			{
 				vec3	n = normalize(vNormal);
 				vec3	l;
 				vec3	v = normalize(-vPosEye.xyz);
-				fColor = vec4(0.0);
-				for(int i=0 ; i<2 ; i++)
+				fColor = texture(uSampler, vTexCoord);
+			}
+		</script>
+		<!-- fColor = vec4(0.0);
+		for(int i=0 ; i<2 ; i++)
+		{
+			if(light[i].enabled)
+			{
+				if(light[i].position.w == 1.0)
+					l = normalize((light[i].position - vPosEye).xyz);		// positional light
+				else
+					l = normalize((light[i].position).xyz);	// directional light
+				float	l_dot_n = max(dot(l, n), 0.0);
+				vec3	ambient = light[i].ambient * material.ambient;
+				vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
+				vec3	specular = vec3(0.0);
+				if(l_dot_n > 0.0)
 				{
-					if(light[i].enabled)
-					{
-						if(light[i].position.w == 1.0)
-							l = normalize((light[i].position - vPosEye).xyz);		// positional light
-						else
-							l = normalize((light[i].position).xyz);	// directional light
-						float	l_dot_n = max(dot(l, n), 0.0);
-						vec3	ambient = light[i].ambient * material.ambient;
-						vec3	diffuse = light[i].diffuse * material.diffuse * l_dot_n;
-						vec3	specular = vec3(0.0);
-						if(l_dot_n > 0.0)
-						{
-							vec3	h = normalize(l + v);
-							specular = light[i].specular * material.specular * pow(max(dot(h, n), 0.0), material.shininess);
-						}
-						fColor += vec4(ambient + diffuse + specular, 1);
-					}
+					vec3	h = normalize(l + v);
+					specular = light[i].specular * material.specular * pow(max(dot(h, n), 0.0), material.shininess);
 				}
+				fColor += vec4(ambient + diffuse + specular, 1);
+			}
+		}
 		fColor.w = 1.0; -->
 
 		<script src="../lib/webgl-utils.js"></script>

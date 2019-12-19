@@ -91,13 +91,28 @@ function main() {
     // initializes the meshes
     let sun = create_mesh_sphere(gl, 100);
     sun.M.setScale(0.7, 0.7, 0.7);
-    let earth = create_mesh_sphere(gl, 8);
-    let moon = create_mesh_sphere(gl, 8);
+    let earth = create_mesh_sphere(gl, 100);
+    let moon = create_mesh_sphere(gl, 100);
     
     let axes = new Axes(gl);
     
     const earth_stat = new RotationStatus("earth");
     const moon_stat  = new RotationStatus("moon");
+
+    
+    const sun_textures = {
+        "uSampler": initTextures(gl, '../resources/2k_sun.jpg', 0)
+    };
+
+    const earth_textures = {
+        "uSampler": initTextures(gl, '../resources/earthmap1k.jpg', 0)
+    };
+
+    const moon_textures = {
+        "uSampler": initTextures(gl, '../resources/moonmap1k.jpg', 0)
+    }
+    
+
     let t_last = Date.now();
 
     let tick = function() {
@@ -121,7 +136,7 @@ function main() {
         sun.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
-            __js_materials["ruby"], V, P);
+            __js_materials["ruby"], V, P, sun_textures);
         
         earth.M.setScale(0.8, 0.8, 0.8);
         /**
@@ -140,7 +155,7 @@ function main() {
         earth.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
-            __js_materials["gold"], V, P);
+            __js_materials["gold"], V, P, earth_textures);
         
         moon.M = earth_base;
         moon.M.scale(0.6, 0.6, 0.6);
@@ -150,7 +165,7 @@ function main() {
         moon.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
-            __js_materials["emerald"], V, P);
+            __js_materials["emerald"], V, P, moon_textures);
 
         // lower-left viewport
         gl.viewport(0, 0, canvas.width/2, canvas.height/2);
@@ -161,7 +176,7 @@ function main() {
         earth.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
-            __js_materials["gold"], V_lower, P_lower);
+            __js_materials["gold"], V_lower, P_lower, earth_textures);
         
         // lower-right viewport
         gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height/2)
@@ -170,8 +185,8 @@ function main() {
         moon.render(gl, 
             list_shaders[document.getElementById("shading-models").value],
             list_lights,
-            __js_materials["emerald"], V_lower, P_lower);
-        
+            __js_materials["emerald"], V_lower, P_lower, moon_textures);
+
         earth_stat.update_angle(elapsed);
         moon_stat.update_angle(elapsed);
 
@@ -180,4 +195,35 @@ function main() {
     tick();
 }
 
+function initTextures(gl, img_src, tex_unit = 0) {
+    // Create a texture object
+    var texture = gl.createTexture();
+    // Create the image object
+    var image = new Image();
 
+    // Register the event handler to be called when image loading is completed
+    image.onload = function () { loadTexture(gl, texture, image, tex_unit); };
+    // Tell the browser to load an Image
+    image.src = img_src;
+
+    return texture;
+}
+
+/**
+ * texture_unit -> texture object를 가리키고 texture object는 image data를 가지고 있다.
+ * 
+ * 여기서 texture object에 미리 image 데이터를 올려두고, (bind 필요)
+ * 각 행성에서 render 시 texture_unit이 해당 texture object를 선택하는 방식 (bind 필요)
+ */
+function loadTexture(gl, texture, image, tex_unit) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);  // Flip the image Y coordinate
+    // Activate texture unit i
+    gl.activeTexture(gl.TEXTURE0 + tex_unit);
+    // Bind the texture object to the target
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Set texture parameters
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    // Set the image data to texture object (memory -> VRAM)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+}
