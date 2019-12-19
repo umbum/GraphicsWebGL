@@ -57,25 +57,11 @@ function main() {
     const P_lower = new Matrix4();
     P_lower.setPerspective(60, (canvas.width / canvas.height), 1, 100);
     
-    let list_shaders = [];
-
     // initializes shaders (reflection models)
-    for(let model of ["Blinn-Phong"]) {
-        list_shaders[model] = new Shader(gl, 
-            document.getElementById("vert-" + model).text,
-            document.getElementById("frag-" + model).text,
-            {aPosition:0, aNormal:1});
-    }
-
-    // initializes the material combobox
-    let combo_mat = document.getElementById("materials");
-    for(let matname in __js_materials) {
-        let opt = document.createElement("option");
-        opt.value = matname;
-        opt.text = matname;
-        combo_mat.add(opt, null);
-    }
-    combo_mat.selectedIndex = 10;
+    const shader = new Shader(gl, 
+        document.getElementById("vert-Blinn-Phong").text,
+        document.getElementById("frag-Blinn-Phong").text,
+        {aPosition:0, aNormal:1});
 
     // initializes light
     const list_lights = [
@@ -133,11 +119,15 @@ function main() {
             list_lights[i].render(gl, V, P);
         }
         
+        gl.useProgram(shader.h_prog);
+        gl.uniform1i(gl.getUniformLocation(shader.h_prog, "shading"), false);
         sun.render(gl, 
-            list_shaders[document.getElementById("shading-models").value],
+            shader,
             list_lights,
-            __js_materials["ruby"], V, P, sun_textures);
+            __js_materials["sun"], V, P, sun_textures);
         
+        gl.useProgram(shader.h_prog);
+        gl.uniform1i(gl.getUniformLocation(shader.h_prog, "shading"), true);
         earth.M.setScale(0.8, 0.8, 0.8);
         /**
          * rotate 후 translate : 공전
@@ -153,9 +143,9 @@ function main() {
                      -Math.sin(degree_to_rad(23.5)), 
                      0, Math.cos(degree_to_rad(23.5)));
         earth.render(gl, 
-            list_shaders[document.getElementById("shading-models").value],
+            shader,
             list_lights,
-            __js_materials["gold"], V, P, earth_textures);
+            __js_materials["earth"], V, P, earth_textures);
         
         moon.M = earth_base;
         moon.M.scale(0.6, 0.6, 0.6);
@@ -163,9 +153,9 @@ function main() {
         moon.M.translate(3.5, 0, 0);
         moon.M.rotate(moon_stat.rotating_angle, 0, 0, 1);
         moon.render(gl, 
-            list_shaders[document.getElementById("shading-models").value],
+            shader,
             list_lights,
-            __js_materials["emerald"], V, P, moon_textures);
+            __js_materials["moon"], V, P, moon_textures);
 
         // lower-left viewport
         gl.viewport(0, 0, canvas.width/2, canvas.height/2);
@@ -174,18 +164,18 @@ function main() {
                     -Math.sin(degree_to_rad(23.5)), 
                     0, Math.cos(degree_to_rad(23.5)));
         earth.render(gl, 
-            list_shaders[document.getElementById("shading-models").value],
+            shader,
             list_lights,
-            __js_materials["gold"], V_lower, P_lower, earth_textures);
+            __js_materials["earth"], V_lower, P_lower, earth_textures);
         
         // lower-right viewport
         gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height/2)
         moon.M.setTranslate(0, -4, 0);
         moon.M.rotate(moon_stat.rotating_angle, 0, 0, 1);
         moon.render(gl, 
-            list_shaders[document.getElementById("shading-models").value],
+            shader,
             list_lights,
-            __js_materials["emerald"], V_lower, P_lower, moon_textures);
+            __js_materials["moon"], V_lower, P_lower, moon_textures);
 
         earth_stat.update_angle(elapsed);
         moon_stat.update_angle(elapsed);
