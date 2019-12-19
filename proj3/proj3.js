@@ -60,7 +60,7 @@ function main() {
     let list_shaders = [];
 
     // initializes shaders (reflection models)
-    for(let model of ["Blinn-Gouraud", "Phong-Gouraud", "Blinn-Phong", "Phong-Phong"]) {
+    for(let model of ["Blinn-Phong"]) {
         list_shaders[model] = new Shader(gl, 
             document.getElementById("vert-" + model).text,
             document.getElementById("frag-" + model).text,
