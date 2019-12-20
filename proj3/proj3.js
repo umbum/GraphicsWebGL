@@ -87,15 +87,17 @@ function main() {
 
     
     const sun_textures = {
-        "uSampler": initTextures(gl, '../resources/2k_sun.jpg', 0)
+        "tex_color": initTextures(gl, '../resources/2k_sun.jpg', 0)
     };
 
     const earth_textures = {
-        "uSampler": initTextures(gl, '../resources/earthmap1k.jpg', 0)
+        "tex_color": initTextures(gl, '../resources/earthmap1k.jpg', 0),
+        "tex_disp": initTextures(gl, '../resources/earthbump1k.jpg', 1),
     };
 
     const moon_textures = {
-        "uSampler": initTextures(gl, '../resources/moonmap1k.jpg', 0)
+        "tex_color": initTextures(gl, '../resources/moonmap1k.jpg', 0),
+        "tex_disp": initTextures(gl, '../resources/moonbump1k.jpg', 1),
     }
     
 
