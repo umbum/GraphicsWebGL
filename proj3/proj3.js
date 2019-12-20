@@ -4,10 +4,11 @@
  */
 "use strict";
 
-class RotationStatus {
+class PlanetStatus {
     constructor(name) {
         this._rotating_speed_DOM  = document.getElementById(`${name}-rotating`);
         this._revolving_speed_DOM = document.getElementById(`${name}-revolving`);
+        this._height_DOM = document.getElementById(`${name}-height`);
         // set initial value
         this._rotating_angle  = this.rotating_speed;  
         this._revolving_angle = this.revolving_speed;
@@ -27,6 +28,10 @@ class RotationStatus {
 
     get revolving_angle() {
         return this._revolving_angle;
+    }
+
+    get height() {
+        return parseInt(this._height_DOM.value) / 100;
     }
     
     update_angle(elapsed) {
@@ -82,10 +87,9 @@ function main() {
     
     let axes = new Axes(gl);
     
-    const earth_stat = new RotationStatus("earth");
-    const moon_stat  = new RotationStatus("moon");
+    const earth_stat = new PlanetStatus("earth");
+    const moon_stat  = new PlanetStatus("moon");
 
-    
     const sun_textures = {
         "tex_color": initTextures(gl, '../resources/2k_sun.jpg', 0)
     };
@@ -99,7 +103,6 @@ function main() {
         "tex_color": initTextures(gl, '../resources/moonmap1k.jpg', 0),
         "tex_disp": initTextures(gl, '../resources/moonbump1k.jpg', 1),
     }
-    
 
     let t_last = Date.now();
 
@@ -130,6 +133,7 @@ function main() {
         
         gl.useProgram(shader.h_prog);
         gl.uniform1i(gl.getUniformLocation(shader.h_prog, "shading"), true);
+        gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), earth_stat.height);
         earth.M.setScale(0.8, 0.8, 0.8);
         /**
          * rotate 후 translate : 공전
@@ -149,6 +153,8 @@ function main() {
             list_lights,
             __js_materials["earth"], V, P, earth_textures);
         
+        gl.useProgram(shader.h_prog);
+        gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), moon_stat.height);
         moon.M = earth_base;
         moon.M.scale(0.6, 0.6, 0.6);
         moon.M.rotate(moon_stat.revolving_angle, 0, 0, 1);
@@ -159,8 +165,11 @@ function main() {
             list_lights,
             __js_materials["moon"], V, P, moon_textures);
 
+
         // lower-left viewport
         gl.viewport(0, 0, canvas.width/2, canvas.height/2);
+        gl.useProgram(shader.h_prog);
+        gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), earth_stat.height);
         earth.M.setTranslate(0, -4, 0);
         earth.M.rotate(earth_stat.rotating_angle, 
                     -Math.sin(degree_to_rad(23.5)), 
@@ -172,6 +181,8 @@ function main() {
         
         // lower-right viewport
         gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height/2)
+        gl.useProgram(shader.h_prog);
+        gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), moon_stat.height);
         moon.M.setTranslate(0, -4, 0);
         moon.M.rotate(moon_stat.rotating_angle, 0, 0, 1);
         moon.render(gl, 
