@@ -85,7 +85,9 @@
             uniform TLight      light[2];
             uniform sampler2D   tex_color;
             uniform sampler2D   tex_normal;
+            uniform sampler2D   tex_specular;
             uniform bool        shading;
+            uniform bool        specular_map;
 
             void main()
             {
@@ -101,7 +103,12 @@
                 TMaterial m;
                 m.diffuse = texture(tex_color, vTexCoord).rgb;
                 m.ambient = material.ambient;
-                m.specular = material.specular;
+                if (specular_map) {
+                    m.specular = texture(tex_specular, vTexCoord).rgb;
+                }
+                else {
+                    m.specular = material.specular;
+                }
                 m.shininess = material.shininess;
 
                 fColor = vec4(0.0);

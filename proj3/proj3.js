@@ -97,6 +97,7 @@ function main() {
     const earth_textures = {
         "tex_color": initTextures(gl, '../resources/earthmap1k.jpg', 0),
         "tex_disp": initTextures(gl, '../resources/earthbump1k.jpg', 1),
+        "tex_specular": initTextures(gl, '../resources/earthspec1k.jpg', 2),
     };
 
     const moon_textures = {
@@ -133,6 +134,7 @@ function main() {
         
         gl.useProgram(shader.h_prog);
         gl.uniform1i(gl.getUniformLocation(shader.h_prog, "shading"), true);
+        gl.uniform1i(gl.getUniformLocation(shader.h_prog, "specular_map"), true);
         gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), earth_stat.height);
         earth.M.setScale(0.8, 0.8, 0.8);
         /**
@@ -154,6 +156,7 @@ function main() {
             __js_materials["earth"], V, P, earth_textures);
         
         gl.useProgram(shader.h_prog);
+        gl.uniform1i(gl.getUniformLocation(shader.h_prog, "specular_map"), false);
         gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), moon_stat.height);
         moon.M = earth_base;
         moon.M.scale(0.6, 0.6, 0.6);
@@ -169,6 +172,7 @@ function main() {
         // lower-left viewport
         gl.viewport(0, 0, canvas.width/2, canvas.height/2);
         gl.useProgram(shader.h_prog);
+        gl.uniform1i(gl.getUniformLocation(shader.h_prog, "specular_map"), true);
         gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), earth_stat.height);
         earth.M.setTranslate(0, -4, 0);
         earth.M.rotate(earth_stat.rotating_angle, 
@@ -182,6 +186,7 @@ function main() {
         // lower-right viewport
         gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height/2)
         gl.useProgram(shader.h_prog);
+        gl.uniform1i(gl.getUniformLocation(shader.h_prog, "specular_map"), false);
         gl.uniform1f(gl.getUniformLocation(shader.h_prog, "disp_scale"), moon_stat.height);
         moon.M.setTranslate(0, -4, 0);
         moon.M.rotate(moon_stat.rotating_angle, 0, 0, 1);
